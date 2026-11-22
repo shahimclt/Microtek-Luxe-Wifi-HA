@@ -1,0 +1,10 @@
+services:
+  custom-api:
+    build: .
+    container_name: custom-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    network_mode: host
+    environment:
+      MICROTEK_PASSWORD: YOURPASSWORD
