@@ -2,7 +2,7 @@
 
 This project documents how to recover and decrypt telemetry that a Microtek inverter broadcasts locally. It is intended for educational and self-hosted diagnostics use on an inverter you own.
 
-The normal Microtek app does not appear to send this telemetry to a cloud service. Instead, the inverter and app communicate over the local network with an AES-encrypted UDP packet.
+The normal Microtek app sends this telemetry to a cloud service to access the inverter remotely. Also, the inverter and app communicate over the local network with an AES-encrypted UDP packet.
 
 > [!WARNING]
 > You are handling credentials and device data. Keep the extracted AP password private, do not commit it to Git, and avoid sharing packet captures containing the password or inverter identifiers.
@@ -52,6 +52,42 @@ Example telemetry:
   "load": 0,
   "frequency": "49.6",
   "m_name": "Luxe NEW1400 ",
+  "rst": 7,
+  "lcmd": "",
+  "src": "fpush",
+  "ups": 1,
+  "battypesel": 1,
+  "buzz": 1,
+  "mainscut": 0,
+  "highpwr": 0,
+  "vacation": 0,
+  "chrgcurr": "0.0",
+  "chrgtime": 0,
+  "bkptime": 0,
+  "batcolor": 2,
+  "turbochrgsts": 0,
+  "battype": 0,
+  "chrgcurrset": 3,
+  "fan": 0,
+  "mains": 0,
+  "cbtripwarn": 0,
+  "wlevelwarn": 0,
+  "lowbatwarn": 0,
+  "chrgrelay_flt": 0,
+  "outvolt_flt": 0,
+  "batvolt_flt": 0,
+  "backfeed_flt": 0,
+  "transF_temp_flt": 0,
+  "mosfet_temp_flt": 0,
+  "shrtckt_flt": 0,
+  "overload_flt": 0,
+  "pSliderV": 83,
+  "bkpSliderV": 17,
+  "dischrgcurr": "0.0",
+  "i_fv": "I1019-0000",
+  "mCoreVer": "4.4.2",
+  "fv": "0000",
+  "flv": "1.0.0",
   "udid": "34ab95b09228",
   "activated": true,
   "wConn": true,
@@ -63,6 +99,8 @@ Example telemetry:
   "_age": 2.54528045654297
 }
 ```
+
+
 
 The `_version`, `_mac`, `_ip`, `_received_at`, and `_age` fields are added by the listener; they are not contained in the encrypted JSON.
 
@@ -98,8 +136,17 @@ The `_version`, `_mac`, `_ip`, `_received_at`, and `_age` fields are added by th
 | `fan` | Fan state |
 | `mains` | Mains state |
 | `cbtripwarn` | Circuit-breaker trip warning |
+
 | `wlevelwarn` | Water-level warning |
 | `lowbatwarn` | Low-battery warning |
+| `chrgrelay_flt` | Charging relay fault |
+| `outvolt_flt` | Output voltage fault |
+| `batvolt_flt` | Battery voltage fault |
+| `backfeed_flt` | Backfeed fault |
+| `transF_temp_flt` | Transformer temperature fault |
+| `mosfet_temp_flt` | MOSFET temperature fault |
+| `shrtckt_flt` | Short-circuit fault |
+| `overload_flt` | Overload fault |
 | `pSliderV` | Primary slider voltage |
 | `bkpSliderV` | Backup slider voltage |
 | `frequency` | Output/input frequency |
@@ -132,6 +179,7 @@ Names and units can vary by firmware. Treat unfamiliar numeric fields as measure
 3. [Verify packet capture](#2-verify-packet-capture)
 4. [Test one payload](#3-test-one-payload)
 5. [Run the local API](#4-run-the-local-api)
+   - [Offline operation and cloud MQTT](#offline-operation-and-cloud-mqtt)
 6. [Troubleshooting](#troubleshooting)
 7. [Add sensors to Home Assistant](#5-add-sensors-to-home-assistant)
 
@@ -405,6 +453,27 @@ curl http://localhost:8000/inverter
 ```
 
 The service updates `latest_state` whenever it receives a valid packet and keeps the data until the process restarts. `_age` is the number of seconds since that packet arrived.
+
+### Fully offline operation
+
+The local API in this repository listens for the inverter's UDP telemetry on port `15951`. It does not host an MQTT broker, redirect DNS, or intercept the inverter's connection to Microtek's cloud.
+
+For a fully offline or isolated-VLAN setup, the inverter's cloud MQTT connection would need to be redirected to a locally hosted MQTT broker. The observed endpoint is:
+
+```text
+ah6sqkqvom5zx-ats.iot.ap-south-1.amazonaws.com
+```
+If this is not the same, Wireshark should be used to capture the destination for all the traffic from the inverter.
+
+The local broker must be set up and reachable on TLS port `8883`, and DNS for that exact hostname must resolve to the local broker's IP address on the inverter's network. A reported failure when attempting this setup is:
+
+```text
+disconnected: Protocol error.
+```
+This is expected as 8883 is the port for secure MQTT (MQTTS) but we do not have the correctly signed certificates for the inverter.
+This integration gets telemetry from the inverter's local UDP broadcasts, not from its TLS/MQTT cloud connection. The broker is only there to give the inverter a local destination to connect to when Microtek's server is unavailable; the integration does not consume MQTT messages. A certificate or MQTT protocol error can prevent that broker connection, but it does not affect UDP telemetry collection.
+
+If the Microtek endpoint is blocked without a working local destination, the inverter's cloud statistics connection will stop. The local UDP telemetry listener is a separate path and can continue to receive packets if the inverter still broadcasts them on the LAN. 
 
 ## 5. Add sensors to Home Assistant
 
