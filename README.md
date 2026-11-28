@@ -4,6 +4,14 @@ This project documents how to recover and decrypt telemetry that a Microtek inve
 
 The normal Microtek app does not appear to send this telemetry to a cloud service. Instead, the inverter and app communicate over the local network with an AES-encrypted UDP packet.
 
+## Compatibility
+- Luxe WiFi 1200VA (Originally Developed for)
+- I-LITHIUM 1500 SW (Confirmed by a redditor)
+
+More Models might be compatible. Let me know if any other model works and I'll add it to the list
+
+Also look at this reddit post, some folks with the same inverters over there: [Stuck on Reverse engineering Microtek Lux Wifi](https://www.reddit.com/r/homelabindia/comments/1y0jho1/stuck_on_reverse_engineering_microtek_lux_wifi/)
+
 > [!WARNING]
 > You are handling credentials and device data. Keep the extracted AP password private, do not commit it to Git, and avoid sharing packet captures containing the password or inverter identifiers.
 
